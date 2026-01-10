@@ -95,6 +95,12 @@ export class GithubOrganizationHelper implements INodeType {
 						description: 'Create a new project',
 						action: 'Create a project',
 					},
+					{
+						name: 'Create for Team',
+						value: 'createForTeam',
+						description: 'Create a new project for a specific team',
+						action: 'Create a project for team',
+					},
 				],
 				default: 'create',
 			},
@@ -191,7 +197,7 @@ export class GithubOrganizationHelper implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['project'],
-						operation: ['create'],
+						operation: ['create', 'createForTeam'],
 					},
 				},
 				description: 'The name of the project',
@@ -204,10 +210,24 @@ export class GithubOrganizationHelper implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['project'],
-						operation: ['create'],
+						operation: ['create', 'createForTeam'],
 					},
 				},
 				description: 'A description of the project',
+			},
+			{
+				displayName: 'Team Slug',
+				name: 'teamSlug',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['project'],
+						operation: ['createForTeam'],
+					},
+				},
+				description: 'The slug of the team (team name in lowercase with hyphens)',
 			},
 			// Team Member Fields
 			{
@@ -320,6 +340,34 @@ export class GithubOrganizationHelper implements INodeType {
 							{
 								method: 'POST',
 								url: `https://api.github.com/orgs/${organization}/projects`,
+								body,
+								json: true,
+								headers: {
+									Accept: 'application/vnd.github+json',
+								},
+							},
+						);
+
+						returnData.push({ json: response });
+					} else if (operation === 'createForTeam') {
+						const projectName = this.getNodeParameter('projectName', i) as string;
+						const description = this.getNodeParameter('description', i, '') as string;
+						const teamSlug = this.getNodeParameter('teamSlug', i) as string;
+
+						const body: IDataObject = {
+							name: projectName,
+						};
+
+						if (description) {
+							body.body = description;
+						}
+
+						const response = await this.helpers.requestWithAuthentication.call(
+							this,
+							'GithubApi',
+							{
+								method: 'POST',
+								url: `https://api.github.com/orgs/${organization}/teams/${teamSlug}/projects`,
 								body,
 								json: true,
 								headers: {
