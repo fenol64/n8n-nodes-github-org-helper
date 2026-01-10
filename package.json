@@ -26,6 +26,11 @@
 	"files": [
 		"dist"
 	],
+    "n8n": {
+        "nodes": [
+            "dist/nodes/CreateGithubTeam.node.js"
+        ]
+    },
 	"devDependencies": {
 		"@n8n/node-cli": "*",
 		"eslint": "9.32.0",
