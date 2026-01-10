@@ -11,7 +11,7 @@ export class CreateGithubProject implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Create GitHub Organization Project',
 		name: 'createGithubProject',
-		icon: 'file:github.svg',
+		icon: 'file:github.dark.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',

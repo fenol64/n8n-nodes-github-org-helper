@@ -11,7 +11,7 @@ export class AddMemberToTeam implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Add Member to GitHub Team',
 		name: 'addMemberToTeam',
-		icon: 'file:github.svg',
+		icon: 'file:github.dark.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
