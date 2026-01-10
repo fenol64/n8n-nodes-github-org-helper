@@ -8,7 +8,7 @@ import {
 
 export class GithubApi implements ICredentialType {
 	name = 'GithubApi';
-    icon = 'file:github.dark.svg' as Icon;
+    icon = 'file:../icons/github.dark.svg' as Icon;
 	displayName = 'GitHub API';
 	documentationUrl = 'github';
 	properties: INodeProperties[] = [
