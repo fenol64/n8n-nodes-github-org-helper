@@ -98,7 +98,7 @@ export class CreateGithubTeam implements INodeType {
 					privacy,
 				};
 
-				const response = await this.helpers.requestWithAuthentication.call(this, 'githubApi', {
+				const response = await this.helpers.requestWithAuthentication.call(this, 'GithubApi', {
 					method: 'POST',
 					url: `https://api.github.com/orgs/${organization}/teams`,
 					body,
@@ -115,6 +115,6 @@ export class CreateGithubTeam implements INodeType {
 			}
 		}
 
-		return this.prepareOutputData(returnData);
+		return [returnData];
 	}
 }
