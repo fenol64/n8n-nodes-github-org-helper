@@ -343,7 +343,7 @@ export class GithubOrganizationHelper implements INodeType {
 								body,
 								json: true,
 								headers: {
-									Accept: 'application/vnd.github+json',
+									Accept: 'application/vnd.github.inertia-preview+json',
 								},
 							},
 						);
@@ -371,7 +371,7 @@ export class GithubOrganizationHelper implements INodeType {
 								body,
 								json: true,
 								headers: {
-									Accept: 'application/vnd.github+json',
+									Accept: 'application/vnd.github.inertia-preview+json',
 								},
 							},
 						);
