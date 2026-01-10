@@ -28,7 +28,12 @@
 	],
     "n8n": {
         "nodes": [
-            "dist/nodes/CreateGithubTeam.node.js"
+            "dist/nodes/CreateGithubTeam/CreateGithubTeam.node.js",
+            "dist/nodes/CreateGithubProject/CreateGithubProject.node.js",
+            "dist/nodes/AddMemberToTeam/AddMemberToTeam.node.js"
+        ],
+        "credentials": [
+            "dist/credentials/GithubApi.credentials.js"
         ]
     },
 	"devDependencies": {
