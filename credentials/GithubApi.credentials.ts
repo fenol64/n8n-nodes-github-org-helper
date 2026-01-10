@@ -1,5 +1,6 @@
 import {
 	IAuthenticateGeneric,
+	Icon,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
@@ -7,6 +8,7 @@ import {
 
 export class GithubApi implements ICredentialType {
 	name = 'GithubApi';
+    icon = 'file:github.dark.svg' as Icon;
 	displayName = 'GitHub API';
 	documentationUrl = 'github';
 	properties: INodeProperties[] = [
