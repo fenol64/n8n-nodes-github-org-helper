@@ -326,57 +326,137 @@ export class GithubOrganizationHelper implements INodeType {
 						const projectName = this.getNodeParameter('projectName', i) as string;
 						const description = this.getNodeParameter('description', i, '') as string;
 
-						const body: IDataObject = {
-							name: projectName,
-						};
+						// First, get the organization ID using GraphQL
+						const orgQuery = `
+							query($login: String!) {
+								organization(login: $login) {
+									id
+								}
+							}
+						`;
 
-						if (description) {
-							body.body = description;
-						}
+						const orgResponse = await this.helpers.requestWithAuthentication.call(
+							this,
+							'GithubApi',
+							{
+								method: 'POST',
+								url: 'https://api.github.com/graphql',
+								body: {
+									query: orgQuery,
+									variables: { login: organization },
+								},
+								json: true,
+							},
+						);
+
+						const ownerId = orgResponse.data.organization.id;
+
+						// Create project using GraphQL (Projects V2)
+						const mutation = `
+							mutation($input: CreateProjectV2Input!) {
+								createProjectV2(input: $input) {
+									projectV2 {
+										id
+										title
+										shortDescription
+										url
+										number
+									}
+								}
+							}
+						`;
 
 						const response = await this.helpers.requestWithAuthentication.call(
 							this,
 							'GithubApi',
 							{
 								method: 'POST',
-								url: `https://api.github.com/orgs/${organization}/projects`,
-								body,
-								json: true,
-								headers: {
-									Accept: 'application/vnd.github.inertia-preview+json',
+								url: 'https://api.github.com/graphql',
+								body: {
+									query: mutation,
+									variables: {
+										input: {
+											ownerId,
+											title: projectName,
+											...(description && { shortDescription: description }),
+										},
+									},
 								},
+								json: true,
 							},
 						);
 
-						returnData.push({ json: response });
+						returnData.push({ json: response.data.createProjectV2.projectV2 });
 					} else if (operation === 'createForTeam') {
+						// Note: Projects V2 are organization-level only. Team-level projects (Classic) are deprecated.
+						// We'll create an organization project instead and suggest the user manually add the team.
 						const projectName = this.getNodeParameter('projectName', i) as string;
 						const description = this.getNodeParameter('description', i, '') as string;
-						const teamSlug = this.getNodeParameter('teamSlug', i) as string;
 
-						const body: IDataObject = {
-							name: projectName,
-						};
+						// Get organization ID
+						const orgQuery = `
+							query($login: String!) {
+								organization(login: $login) {
+									id
+								}
+							}
+						`;
 
-						if (description) {
-							body.body = description;
-						}
+						const orgResponse = await this.helpers.requestWithAuthentication.call(
+							this,
+							'GithubApi',
+							{
+								method: 'POST',
+								url: 'https://api.github.com/graphql',
+								body: {
+									query: orgQuery,
+									variables: { login: organization },
+								},
+								json: true,
+							},
+						);
+
+						const ownerId = orgResponse.data.organization.id;
+
+						// Create organization project using GraphQL (Projects V2)
+						const mutation = `
+							mutation($input: CreateProjectV2Input!) {
+								createProjectV2(input: $input) {
+									projectV2 {
+										id
+										title
+										shortDescription
+										url
+										number
+									}
+								}
+							}
+						`;
 
 						const response = await this.helpers.requestWithAuthentication.call(
 							this,
 							'GithubApi',
 							{
 								method: 'POST',
-								url: `https://api.github.com/orgs/${organization}/teams/${teamSlug}/projects`,
-								body,
-								json: true,
-								headers: {
-									Accept: 'application/vnd.github.inertia-preview+json',
+								url: 'https://api.github.com/graphql',
+								body: {
+									query: mutation,
+									variables: {
+										input: {
+											ownerId,
+											title: projectName,
+											...(description && { shortDescription: description }),
+										},
+									},
 								},
+								json: true,
 							},
 						);
 
-						returnData.push({ json: response });
+						const result = response.data.createProjectV2.projectV2;
+						result.note = 'Projects V2 are organization-level. Please add team access manually via GitHub UI.';
+
+						returnData.push({ json: result });
 					}
 				} else if (resource === 'teamMember') {
 					if (operation === 'add') {
