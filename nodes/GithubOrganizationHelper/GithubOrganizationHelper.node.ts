@@ -448,7 +448,6 @@ export class GithubOrganizationHelper implements INodeType {
 						}
 
 						const ownerId = orgTeamResponse.data.organization.id;
-						const teamId = orgTeamResponse.data.organization.team.id;
 
 						// Create organization project using GraphQL (Projects V2)
 						const createProjectMutation = `
@@ -493,50 +492,89 @@ export class GithubOrganizationHelper implements INodeType {
 
 						const projectId = createResponse.data.createProjectV2.projectV2.id;
 
-						// Link project to team
-						const linkToTeamMutation = `
-							mutation($projectId: ID!, $teamId: ID!) {
-								linkProjectV2ToTeam(input: { projectId: $projectId, teamId: $teamId }) {
-									project {
+						// Add team to project collaborators using REST API
+						// First, get the team node ID (different from database ID)
+						const teamNodeIdQuery = `
+							query($org: String!, $slug: String!) {
+								organization(login: $org) {
+									team(slug: $slug) {
 										id
-										title
-										url
-										number
 									}
 								}
 							}
 						`;
 
-						const linkResponse = await this.helpers.requestWithAuthentication.call(
+						const teamNodeResponse = await this.helpers.requestWithAuthentication.call(
 							this,
 							'GithubApi',
 							{
 								method: 'POST',
 								url: 'https://api.github.com/graphql',
 								body: {
-									query: linkToTeamMutation,
+									query: teamNodeIdQuery,
 									variables: {
-										projectId,
-										teamId,
+										org: organization,
+										slug: teamSlug,
 									},
 								},
 								json: true,
 							},
 						) as any;
 
-						if (linkResponse.errors) {
-							// Project was created but linking failed
-							const result = createResponse.data.createProjectV2.projectV2;
-							result.warning = `Project created but failed to link to team: ${JSON.stringify(linkResponse.errors)}`;
-							returnData.push({ json: result });
-						} else {
-							const result = linkResponse.data.linkProjectV2ToTeam.project;
-							result.success = `Project created and linked to team '${teamSlug}'`;
-							if (description) {
-								result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
+						let result = createResponse.data.createProjectV2.projectV2;
+
+						// Try to grant team access using GraphQL mutation
+						if (teamNodeResponse.data?.organization?.team?.id) {
+							const grantAccessMutation = `
+								mutation($projectId: ID!, $teamId: ID!, $role: ProjectV2Roles!) {
+									updateProjectV2Collaborators(input: {
+										projectId: $projectId,
+										collaborators: [{teamId: $teamId, role: $role}]
+									}) {
+										collaborators(first: 10) {
+											nodes {
+												... on Team {
+													name
+													slug
+												}
+											}
+										}
+									}
+								}
+							`;
+
+							const grantResponse = await this.helpers.requestWithAuthentication.call(
+								this,
+								'GithubApi',
+								{
+									method: 'POST',
+									url: 'https://api.github.com/graphql',
+									body: {
+										query: grantAccessMutation,
+										variables: {
+											projectId,
+											teamId: teamNodeResponse.data.organization.team.id,
+											role: 'ADMIN',
+										},
+									},
+									json: true,
+								},
+							) as any;
+
+							if (grantResponse.errors) {
+								result.warning = `Project created but team access grant failed: ${JSON.stringify(grantResponse.errors)}. You may need to add team access manually.`;
+							} else {
+								result.success = `Project created and team '${teamSlug}' granted admin access`;
 							}
-							returnData.push({ json: result });
+						} else {
+							result.warning = `Project created but couldn't find team. Add team access manually at the project settings.`;
 						}
+
+						if (description) {
+							result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
+						}
+
+						returnData.push({ json: result });
 					}
 				} else if (resource === 'teamMember') {
 					if (operation === 'add') {
