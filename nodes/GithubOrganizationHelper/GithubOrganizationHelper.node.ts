@@ -402,46 +402,56 @@ export class GithubOrganizationHelper implements INodeType {
 
 						returnData.push({ json: response.data.createProjectV2.projectV2 });
 					} else if (operation === 'createForTeam') {
-						// Note: Projects V2 are organization-level only. Team-level projects (Classic) are deprecated.
-						// We'll create an organization project instead and suggest the user manually add the team.
 						const projectName = this.getNodeParameter('projectName', i) as string;
 						const description = this.getNodeParameter('description', i, '') as string;
+						const teamSlug = this.getNodeParameter('teamSlug', i) as string;
 
-						// Get organization ID
-						const orgQuery = `
-							query($login: String!) {
-								organization(login: $login) {
+						// Get organization ID and team ID
+						const orgAndTeamQuery = `
+							query($orgLogin: String!, $teamSlug: String!) {
+								organization(login: $orgLogin) {
 									id
+									team(slug: $teamSlug) {
+										id
+									}
 								}
 							}
 						`;
 
-						const orgResponse = await this.helpers.requestWithAuthentication.call(
+						const orgTeamResponse = await this.helpers.requestWithAuthentication.call(
 							this,
 							'GithubApi',
 							{
 								method: 'POST',
 								url: 'https://api.github.com/graphql',
 								body: {
-									query: orgQuery,
-									variables: { login: organization },
+									query: orgAndTeamQuery,
+									variables: {
+										orgLogin: organization,
+										teamSlug: teamSlug
+									},
 								},
 								json: true,
 							},
 						) as any;
 
-						if (orgResponse.errors) {
-							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgResponse.errors)}`);
+						if (orgTeamResponse.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgTeamResponse.errors)}`);
 						}
 
-						if (!orgResponse.data?.organization?.id) {
+						if (!orgTeamResponse.data?.organization?.id) {
 							throw new Error(`Organization '${organization}' not found or you don't have access to it`);
 						}
 
-						const ownerId = orgResponse.data.organization.id;
+						if (!orgTeamResponse.data?.organization?.team?.id) {
+							throw new Error(`Team '${teamSlug}' not found in organization '${organization}'`);
+						}
+
+						const ownerId = orgTeamResponse.data.organization.id;
+						const teamId = orgTeamResponse.data.organization.team.id;
 
 						// Create organization project using GraphQL (Projects V2)
-						const mutation = `
+						const createProjectMutation = `
 							mutation($input: CreateProjectV2Input!) {
 								createProjectV2(input: $input) {
 									projectV2 {
@@ -454,14 +464,14 @@ export class GithubOrganizationHelper implements INodeType {
 							}
 						`;
 
-						const response = await this.helpers.requestWithAuthentication.call(
+						const createResponse = await this.helpers.requestWithAuthentication.call(
 							this,
 							'GithubApi',
 							{
 								method: 'POST',
 								url: 'https://api.github.com/graphql',
 								body: {
-									query: mutation,
+									query: createProjectMutation,
 									variables: {
 										input: {
 											ownerId,
@@ -473,21 +483,60 @@ export class GithubOrganizationHelper implements INodeType {
 							},
 						) as any;
 
-						if (response.errors) {
-							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(response.errors)}`);
+						if (createResponse.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(createResponse.errors)}`);
 						}
 
-						if (!response.data?.createProjectV2?.projectV2) {
+						if (!createResponse.data?.createProjectV2?.projectV2) {
 							throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
 						}
 
-						const result = response.data.createProjectV2.projectV2;
-						result.note = 'Projects V2 are organization-level. Please add team access manually via GitHub UI.';
-						if (description) {
-							result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
-						}
+						const projectId = createResponse.data.createProjectV2.projectV2.id;
 
-						returnData.push({ json: result });
+						// Link project to team
+						const linkToTeamMutation = `
+							mutation($projectId: ID!, $teamId: ID!) {
+								linkProjectV2ToTeam(input: { projectId: $projectId, teamId: $teamId }) {
+									project {
+										id
+										title
+										url
+										number
+									}
+								}
+							}
+						`;
+
+						const linkResponse = await this.helpers.requestWithAuthentication.call(
+							this,
+							'GithubApi',
+							{
+								method: 'POST',
+								url: 'https://api.github.com/graphql',
+								body: {
+									query: linkToTeamMutation,
+									variables: {
+										projectId,
+										teamId,
+									},
+								},
+								json: true,
+							},
+						) as any;
+
+						if (linkResponse.errors) {
+							// Project was created but linking failed
+							const result = createResponse.data.createProjectV2.projectV2;
+							result.warning = `Project created but failed to link to team: ${JSON.stringify(linkResponse.errors)}`;
+							returnData.push({ json: result });
+						} else {
+							const result = linkResponse.data.linkProjectV2ToTeam.project;
+							result.success = `Project created and linked to team '${teamSlug}'`;
+							if (description) {
+								result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
+							}
+							returnData.push({ json: result });
+						}
 					}
 				} else if (resource === 'teamMember') {
 					if (operation === 'add') {
