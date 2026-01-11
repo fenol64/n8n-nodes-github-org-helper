@@ -490,88 +490,22 @@ export class GithubOrganizationHelper implements INodeType {
 							throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
 						}
 
-						const projectId = createResponse.data.createProjectV2.projectV2.id;
-
-						// Add team to project collaborators using REST API
-						// First, get the team node ID (different from database ID)
-						const teamNodeIdQuery = `
-							query($org: String!, $slug: String!) {
-								organization(login: $org) {
-									team(slug: $slug) {
-										id
-									}
-								}
-							}
-						`;
-
-						const teamNodeResponse = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: 'https://api.github.com/graphql',
-								body: {
-									query: teamNodeIdQuery,
-									variables: {
-										org: organization,
-										slug: teamSlug,
-									},
-								},
-								json: true,
-							},
-						) as any;
+						const projectUrl = createResponse.data.createProjectV2.projectV2.url;
 
 						let result = createResponse.data.createProjectV2.projectV2;
 
-						// Try to grant team access using GraphQL mutation
-						if (teamNodeResponse.data?.organization?.team?.id) {
-							const grantAccessMutation = `
-								mutation($projectId: ID!, $teamId: ID!, $role: ProjectV2Roles!) {
-									updateProjectV2Collaborators(input: {
-										projectId: $projectId,
-										collaborators: [{teamId: $teamId, role: $role}]
-									}) {
-										collaborators(first: 10) {
-											nodes {
-												... on Team {
-													name
-													slug
-												}
-											}
-										}
-									}
-								}
-							`;
+						// Note: GitHub API doesn't allow adding team collaborators via Personal Access Token
+						// This only works with GitHub Apps
+						result.team_instructions = `To add team '${teamSlug}' to this project:
+1. Go to ${projectUrl}/settings/access
+2. Click "Manage access"
+3. Click "Add teams"
+4. Search for '${teamSlug}' and add it with desired role`;
 
-							const grantResponse = await this.helpers.requestWithAuthentication.call(
-								this,
-								'GithubApi',
-								{
-									method: 'POST',
-									url: 'https://api.github.com/graphql',
-									body: {
-										query: grantAccessMutation,
-										variables: {
-											projectId,
-											teamId: teamNodeResponse.data.organization.team.id,
-											role: 'ADMIN',
-										},
-									},
-									json: true,
-								},
-							) as any;
-
-							if (grantResponse.errors) {
-								result.warning = `Project created but team access grant failed: ${JSON.stringify(grantResponse.errors)}. You may need to add team access manually.`;
-							} else {
-								result.success = `Project created and team '${teamSlug}' granted admin access`;
-							}
-						} else {
-							result.warning = `Project created but couldn't find team. Add team access manually at the project settings.`;
-						}
+						result.info = `Project created successfully. Due to GitHub API limitations, team access must be added manually.`;
 
 						if (description) {
-							result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
+							result.description_note = `To add description: Go to project settings and add "${description}"`;
 						}
 
 						returnData.push({ json: result });
