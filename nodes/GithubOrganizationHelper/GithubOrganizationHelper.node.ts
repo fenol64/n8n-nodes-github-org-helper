@@ -324,7 +324,7 @@ export class GithubOrganizationHelper implements INodeType {
 				} else if (resource === 'project') {
 					if (operation === 'create') {
 						const projectName = this.getNodeParameter('projectName', i) as string;
-						const description = this.getNodeParameter('description', i, '') as string;
+						// Note: description parameter exists but cannot be set via GitHub API for Projects V2
 
 						// First, get the organization ID using GraphQL
 						const orgQuery = `
@@ -366,7 +366,6 @@ export class GithubOrganizationHelper implements INodeType {
 									projectV2 {
 										id
 										title
-										shortDescription
 										url
 										number
 									}
@@ -386,7 +385,6 @@ export class GithubOrganizationHelper implements INodeType {
 										input: {
 											ownerId,
 											title: projectName,
-											...(description && { shortDescription: description }),
 										},
 									},
 								},
@@ -449,7 +447,6 @@ export class GithubOrganizationHelper implements INodeType {
 									projectV2 {
 										id
 										title
-										shortDescription
 										url
 										number
 									}
@@ -469,7 +466,6 @@ export class GithubOrganizationHelper implements INodeType {
 										input: {
 											ownerId,
 											title: projectName,
-											...(description && { shortDescription: description }),
 										},
 									},
 								},
@@ -487,6 +483,9 @@ export class GithubOrganizationHelper implements INodeType {
 
 						const result = response.data.createProjectV2.projectV2;
 						result.note = 'Projects V2 are organization-level. Please add team access manually via GitHub UI.';
+						if (description) {
+							result.description_note = `Note: Description "${description}" cannot be set via API. Please add it manually in GitHub.`;
+						}
 
 						returnData.push({ json: result });
 					}
