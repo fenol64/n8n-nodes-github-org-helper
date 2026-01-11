@@ -347,7 +347,15 @@ export class GithubOrganizationHelper implements INodeType {
 								},
 								json: true,
 							},
-						);
+						) as any;
+
+						if (orgResponse.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgResponse.errors)}`);
+						}
+
+						if (!orgResponse.data?.organization?.id) {
+							throw new Error(`Organization '${organization}' not found or you don't have access to it`);
+						}
 
 						const ownerId = orgResponse.data.organization.id;
 
@@ -384,7 +392,15 @@ export class GithubOrganizationHelper implements INodeType {
 								},
 								json: true,
 							},
-						);
+						) as any;
+
+						if (response.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(response.errors)}`);
+						}
+
+						if (!response.data?.createProjectV2?.projectV2) {
+							throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
+						}
 
 						returnData.push({ json: response.data.createProjectV2.projectV2 });
 					} else if (operation === 'createForTeam') {
@@ -414,7 +430,15 @@ export class GithubOrganizationHelper implements INodeType {
 								},
 								json: true,
 							},
-						);
+						) as any;
+
+						if (orgResponse.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgResponse.errors)}`);
+						}
+
+						if (!orgResponse.data?.organization?.id) {
+							throw new Error(`Organization '${organization}' not found or you don't have access to it`);
+						}
 
 						const ownerId = orgResponse.data.organization.id;
 
@@ -451,7 +475,15 @@ export class GithubOrganizationHelper implements INodeType {
 								},
 								json: true,
 							},
-						);
+						) as any;
+
+						if (response.errors) {
+							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(response.errors)}`);
+						}
+
+						if (!response.data?.createProjectV2?.projectV2) {
+							throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
+						}
 
 						const result = response.data.createProjectV2.projectV2;
 						result.note = 'Projects V2 are organization-level. Please add team access manually via GitHub UI.';
