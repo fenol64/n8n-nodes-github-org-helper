@@ -302,6 +302,23 @@ export class GithubOrganizationHelper implements INodeType {
 				let authHeaders: { [key: string]: string };
 
 				if (credentials.authMethod === 'app') {
+					// Validate GitHub App credentials
+					if (!credentials.appId) {
+						throw new Error('GitHub App ID is required but not provided');
+					}
+					if (!credentials.installationId) {
+						throw new Error('GitHub App Installation ID is required but not provided');
+					}
+					if (!credentials.privateKey) {
+						throw new Error('GitHub App Private Key is required but not provided');
+					}
+
+					// Validate private key format
+					const privateKey = credentials.privateKey as string;
+					if (!privateKey.includes('BEGIN') || !privateKey.includes('END')) {
+						throw new Error('GitHub App Private Key must be in PEM format (include BEGIN and END lines)');
+					}
+
 					// Generate JWT for GitHub App
 					const now = Math.floor(Date.now() / 1000);
 					const payload = {
@@ -309,25 +326,41 @@ export class GithubOrganizationHelper implements INodeType {
 						exp: now + (10 * 60),
 						iss: credentials.appId as string,
 					};
-					const jwtToken = jwt.sign(payload, credentials.privateKey as string, { algorithm: 'RS256' });
 
-					// Get installation token
-					const tokenResponse = await this.helpers.request({
-						method: 'POST',
-						url: `https://api.github.com/app/installations/${credentials.installationId}/access_tokens`,
-						headers: {
-							'Authorization': `Bearer ${jwtToken}`,
+					try {
+						const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+
+						// Get installation token
+						const tokenResponse = await this.helpers.request({
+							method: 'POST',
+							url: `https://api.github.com/app/installations/${credentials.installationId}/access_tokens`,
+							headers: {
+								'Authorization': `Bearer ${jwtToken}`,
+								'Accept': 'application/vnd.github.v3+json',
+								'User-Agent': 'n8n-github-org-helper',
+							},
+							json: true,
+						}) as any;
+
+						if (!tokenResponse.token) {
+							throw new Error('Failed to get installation token. Please check your App ID, Installation ID, and Private Key.');
+						}
+
+						authHeaders = {
+							'Authorization': `Bearer ${tokenResponse.token}`,
 							'Accept': 'application/vnd.github.v3+json',
 							'User-Agent': 'n8n-github-org-helper',
-						},
-						json: true,
-					}) as any;
-
-					authHeaders = {
-						'Authorization': `Bearer ${tokenResponse.token}`,
-						'Accept': 'application/vnd.github.v3+json',
-						'User-Agent': 'n8n-github-org-helper',
-					};
+						};
+					} catch (error: any) {
+						if (error.message.includes('401')) {
+							throw new Error('GitHub App authentication failed. Please verify:\n1. App ID is correct\n2. Private Key is valid and complete (including BEGIN/END lines)\n3. Installation ID is correct for your organization');
+						} else if (error.message.includes('404')) {
+							throw new Error('Installation not found. Please verify the Installation ID is correct and the app is installed in your organization.');
+						} else if (error.message.includes('PEM')) {
+							throw new Error('Invalid Private Key format. Make sure to copy the entire PEM file content including BEGIN and END lines.');
+						}
+						throw new Error(`GitHub App authentication error: ${error.message}`);
+					}
 				} else {
 					authHeaders = {
 						'Authorization': `Bearer ${credentials.accessToken}`,

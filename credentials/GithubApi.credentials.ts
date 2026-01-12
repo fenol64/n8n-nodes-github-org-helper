@@ -1,9 +1,9 @@
 import {
 	IAuthenticateGeneric,
-	Icon,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
+	Icon,
 } from 'n8n-workflow';
 
 export class GithubApi implements ICredentialType {
@@ -91,11 +91,13 @@ export class GithubApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			headers: {
-				Authorization: '={{$credentials.authMethod === "token" ? "Bearer " + $credentials.accessToken : "Bearer " + $credentials.installationToken}}',
+				Authorization: '={{$credentials.authMethod === "token" ? "Bearer " + $credentials.accessToken : ""}}',
 			},
 		},
 	};
 
+	// Teste simples apenas para Personal Access Token
+	// Para GitHub Apps, o teste é feito no próprio node
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: 'https://api.github.com',

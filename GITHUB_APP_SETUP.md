@@ -1,6 +1,27 @@
-# GitHub Organization Helper - GitHub App Setup
+# GitHub Organization Helper - GitHub ### 4. Obter as Credenciais
 
-Este node do n8n agora suporta autenticação via GitHub App, que é necessária para criar projetos para times em organizações.
+Após a instalação, você precisará de:
+
+1. **App ID**: Encontrado na página principal do app (Settings > Developer settings > GitHub Apps > Seu App)
+
+2. **Installation ID**: Há duas formas de obter:
+
+   **Método A - Pela URL (mais fácil):**
+   - Na sua organização, vá em "Settings" > "GitHub Apps" (ou "Installed GitHub Apps")
+   - Clique no app instalado
+   - Olhe na URL da página: `https://github.com/settings/installations/INSTALLATION_ID`
+   - O número no final é o Installation ID
+
+   **Método B - Via script (automático):**
+   - Use o script `get-installation-id.sh` incluído neste projeto
+   - Edite o arquivo e preencha: APP_ID, caminho da private key, e nome da organização
+   - Execute: `./get-installation-id.sh`
+
+3. **Private Key**:
+   - Na página do app (Settings > Developer settings > GitHub Apps > Seu App)
+   - Vá na seção "Private keys"
+   - Clique em "Generate a private key"
+   - Faça download do arquivo .pemte node do n8n agora suporta autenticação via GitHub App, que é necessária para criar projetos para times em organizações.
 
 ## Como configurar o GitHub App
 
@@ -91,6 +112,52 @@ Com o GitHub App configurado, você pode:
 ### Project creation fails
 - Verifique se o app tem permissão "Projects: Write"
 - Confirme que a organização permite projetos
+
+## ⚠️ Troubleshooting Comum
+
+### ❌ "authorization failed - please check your credentials"
+
+**Possíveis causas e soluções:**
+
+1. **App ID incorreto**
+   - ✅ Verifique na página do GitHub App: Settings > Developer settings > GitHub Apps > [Seu App]
+   - ✅ Use apenas números (ex: `2838507`)
+
+2. **Installation ID incorreto**
+   - ✅ Método mais confiável: Vá em Settings > GitHub Apps na sua **organização**
+   - ✅ Clique no app e veja na URL: `/settings/installations/[INSTALLATION_ID]`
+   - ✅ Use apenas números (ex: `50350438`)
+
+3. **Private Key com problema**
+   - ✅ Deve incluir as linhas `-----BEGIN RSA PRIVATE KEY-----` e `-----END RSA PRIVATE KEY-----`
+   - ✅ Copie todo o conteúdo do arquivo .pem
+   - ✅ Não modifique nem remova quebras de linha
+   - ✅ Exemplo correto:
+   ```
+   -----BEGIN RSA PRIVATE KEY-----
+   MIIEpAIBAAKCAQEA...
+   (várias linhas)
+   ...xyz123
+   -----END RSA PRIVATE KEY-----
+   ```
+
+4. **App não instalado corretamente**
+   - ✅ Verifique se o app está instalado na **organização correta**
+   - ✅ Confirme as permissões: Projects (Write), Teams (Write), Members (Write)
+
+### 🧪 **Teste suas credenciais primeiro:**
+
+Execute o script de teste antes de usar no n8n:
+
+```bash
+# 1. Edite o arquivo com suas credenciais:
+nano test-github-app-auth.sh
+
+# 2. Execute o teste:
+./test-github-app-auth.sh
+```
+
+Se o teste passar, suas credenciais estão corretas para usar no n8n!
 
 ## Exemplo de uso
 
