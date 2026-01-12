@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
 	IAuthenticateGeneric,
 	ICredentialType,
@@ -6,10 +7,10 @@ import {
 } from 'n8n-workflow';
 
 export class GithubApi implements ICredentialType {
-	name = 'GithubApi';
+	name = 'githubApi';
     icon = 'file:../icons/github.dark.svg' as Icon;
 	displayName = 'GitHub API';
-	documentationUrl = 'github';
+	documentationUrl = 'https://github.com/fenol64/n8n-nodes-github-org-helper';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Authentication Method',
