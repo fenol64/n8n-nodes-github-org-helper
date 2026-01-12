@@ -26,14 +26,14 @@
 	"files": [
 		"dist"
 	],
-    "n8n": {
-        "nodes": [
-            "dist/nodes/GithubOrganizationHelper/GithubOrganizationHelper.node.js"
-        ],
-        "credentials": [
-            "dist/credentials/GithubApi.credentials.js"
-        ]
-    },
+	"n8n": {
+		"nodes": [
+			"dist/nodes/GithubOrganizationHelper/GithubOrganizationHelper.node.js"
+		],
+		"credentials": [
+			"dist/credentials/GithubApi.credentials.js"
+		]
+	},
 	"devDependencies": {
 		"@n8n/node-cli": "*",
 		"eslint": "9.32.0",
@@ -43,5 +43,9 @@
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"
+	},
+	"dependencies": {
+		"@types/jsonwebtoken": "^9.0.10",
+		"jsonwebtoken": "^9.0.3"
 	}
 }

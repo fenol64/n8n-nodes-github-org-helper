@@ -13,13 +13,77 @@ export class GithubApi implements ICredentialType {
 	documentationUrl = 'github';
 	properties: INodeProperties[] = [
 		{
+			displayName: 'Authentication Method',
+			name: 'authMethod',
+			type: 'options',
+			options: [
+				{
+					name: 'Personal Access Token',
+					value: 'token',
+				},
+				{
+					name: 'GitHub App',
+					value: 'app',
+				},
+			],
+			default: 'token',
+		},
+		{
 			displayName: 'Access Token',
 			name: 'accessToken',
 			type: 'string',
 			typeOptions: { password: true },
 			default: '',
 			required: true,
+			displayOptions: {
+				show: {
+					authMethod: ['token'],
+				},
+			},
 			description: 'GitHub personal access token with appropriate permissions',
+		},
+		{
+			displayName: 'App ID',
+			name: 'appId',
+			type: 'string',
+			default: '',
+			required: true,
+			displayOptions: {
+				show: {
+					authMethod: ['app'],
+				},
+			},
+			description: 'GitHub App ID',
+		},
+		{
+			displayName: 'Installation ID',
+			name: 'installationId',
+			type: 'string',
+			default: '',
+			required: true,
+			displayOptions: {
+				show: {
+					authMethod: ['app'],
+				},
+			},
+			description: 'GitHub App Installation ID for your organization',
+		},
+		{
+			displayName: 'Private Key',
+			name: 'privateKey',
+			type: 'string',
+			typeOptions: {
+				password: true,
+				rows: 10,
+			},
+			default: '',
+			required: true,
+			displayOptions: {
+				show: {
+					authMethod: ['app'],
+				},
+			},
+			description: 'GitHub App Private Key (PEM format)',
 		},
 	];
 
@@ -27,7 +91,7 @@ export class GithubApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			headers: {
-				Authorization: '=Bearer {{$credentials.accessToken}}',
+				Authorization: '={{$credentials.authMethod === "token" ? "Bearer " + $credentials.accessToken : "Bearer " + $credentials.installationToken}}',
 			},
 		},
 	};

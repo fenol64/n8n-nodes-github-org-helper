@@ -6,6 +6,7 @@ import {
 	INodeTypeDescription,
 	NodeApiError,
 } from 'n8n-workflow';
+import * as jwt from 'jsonwebtoken';
 
 export class GithubOrganizationHelper implements INodeType {
 	description: INodeTypeDescription = {
@@ -296,6 +297,45 @@ export class GithubOrganizationHelper implements INodeType {
 			try {
 				const organization = this.getNodeParameter('organization', i) as string;
 
+				// Get auth headers for this operation
+				const credentials = await this.getCredentials('GithubApi');
+				let authHeaders: { [key: string]: string };
+
+				if (credentials.authMethod === 'app') {
+					// Generate JWT for GitHub App
+					const now = Math.floor(Date.now() / 1000);
+					const payload = {
+						iat: now - 60,
+						exp: now + (10 * 60),
+						iss: credentials.appId as string,
+					};
+					const jwtToken = jwt.sign(payload, credentials.privateKey as string, { algorithm: 'RS256' });
+
+					// Get installation token
+					const tokenResponse = await this.helpers.request({
+						method: 'POST',
+						url: `https://api.github.com/app/installations/${credentials.installationId}/access_tokens`,
+						headers: {
+							'Authorization': `Bearer ${jwtToken}`,
+							'Accept': 'application/vnd.github.v3+json',
+							'User-Agent': 'n8n-github-org-helper',
+						},
+						json: true,
+					}) as any;
+
+					authHeaders = {
+						'Authorization': `Bearer ${tokenResponse.token}`,
+						'Accept': 'application/vnd.github.v3+json',
+						'User-Agent': 'n8n-github-org-helper',
+					};
+				} else {
+					authHeaders = {
+						'Authorization': `Bearer ${credentials.accessToken}`,
+						'Accept': 'application/vnd.github.v3+json',
+						'User-Agent': 'n8n-github-org-helper',
+					};
+				}
+
 				if (resource === 'team') {
 					if (operation === 'create') {
 						const teamName = this.getNodeParameter('teamName', i) as string;
@@ -308,16 +348,13 @@ export class GithubOrganizationHelper implements INodeType {
 							privacy,
 						};
 
-						const response = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: `https://api.github.com/orgs/${organization}/teams`,
-								body,
-								json: true,
-							},
-						);
+						const response = await this.helpers.request({
+							method: 'POST',
+							url: `https://api.github.com/orgs/${organization}/teams`,
+							headers: authHeaders,
+							body,
+							json: true,
+						});
 
 						returnData.push({ json: response });
 					}
@@ -335,19 +372,16 @@ export class GithubOrganizationHelper implements INodeType {
 							}
 						`;
 
-						const orgResponse = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: 'https://api.github.com/graphql',
-								body: {
-									query: orgQuery,
-									variables: { login: organization },
-								},
-								json: true,
+						const orgResponse = await this.helpers.request({
+							method: 'POST',
+							url: 'https://api.github.com/graphql',
+							headers: authHeaders,
+							body: {
+								query: orgQuery,
+								variables: { login: organization },
 							},
-						) as any;
+							json: true,
+						}) as any;
 
 						if (orgResponse.errors) {
 							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgResponse.errors)}`);
@@ -373,24 +407,21 @@ export class GithubOrganizationHelper implements INodeType {
 							}
 						`;
 
-						const response = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: 'https://api.github.com/graphql',
-								body: {
-									query: mutation,
-									variables: {
-										input: {
-											ownerId,
-											title: projectName,
-										},
+						const response = await this.helpers.request({
+							method: 'POST',
+							url: 'https://api.github.com/graphql',
+							headers: authHeaders,
+							body: {
+								query: mutation,
+								variables: {
+									input: {
+										ownerId,
+										title: projectName,
 									},
 								},
-								json: true,
 							},
-						) as any;
+							json: true,
+						}) as any;
 
 						if (response.errors) {
 							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(response.errors)}`);
@@ -418,22 +449,19 @@ export class GithubOrganizationHelper implements INodeType {
 							}
 						`;
 
-						const orgTeamResponse = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: 'https://api.github.com/graphql',
-								body: {
-									query: orgAndTeamQuery,
-									variables: {
-										orgLogin: organization,
-										teamSlug: teamSlug
-									},
+						const orgTeamResponse = await this.helpers.request({
+							method: 'POST',
+							url: 'https://api.github.com/graphql',
+							headers: authHeaders,
+							body: {
+								query: orgAndTeamQuery,
+								variables: {
+									orgLogin: organization,
+									teamSlug: teamSlug
 								},
-								json: true,
 							},
-						) as any;
+							json: true,
+						}) as any;
 
 						if (orgTeamResponse.errors) {
 							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(orgTeamResponse.errors)}`);
@@ -463,24 +491,21 @@ export class GithubOrganizationHelper implements INodeType {
 							}
 						`;
 
-						const createResponse = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'POST',
-								url: 'https://api.github.com/graphql',
-								body: {
-									query: createProjectMutation,
-									variables: {
-										input: {
-											ownerId,
-											title: projectName,
-										},
+						const createResponse = await this.helpers.request({
+							method: 'POST',
+							url: 'https://api.github.com/graphql',
+							headers: authHeaders,
+							body: {
+								query: createProjectMutation,
+								variables: {
+									input: {
+										ownerId,
+										title: projectName,
 									},
 								},
-								json: true,
 							},
-						) as any;
+							json: true,
+						}) as any;
 
 						if (createResponse.errors) {
 							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(createResponse.errors)}`);
@@ -494,15 +519,20 @@ export class GithubOrganizationHelper implements INodeType {
 
 						let result = createResponse.data.createProjectV2.projectV2;
 
-						// Note: GitHub API doesn't allow adding team collaborators via Personal Access Token
-						// This only works with GitHub Apps
-						result.team_instructions = `To add team '${teamSlug}' to this project:
+						// With GitHub Apps, we can now add team collaborators automatically
+						if (credentials.authMethod === 'app') {
+							result.info = `Project created successfully with GitHub App authentication. Team access can now be managed programmatically.`;
+							// TODO: Implement automatic team collaboration assignment when GitHub adds this to their API
+							result.team_access_note = `Team '${teamSlug}' access should be added via GitHub's project collaboration API once available.`;
+						} else {
+							// Note: GitHub API doesn't allow adding team collaborators via Personal Access Token
+							result.team_instructions = `To add team '${teamSlug}' to this project:
 1. Go to ${projectUrl}/settings/access
 2. Click "Manage access"
 3. Click "Add teams"
 4. Search for '${teamSlug}' and add it with desired role`;
-
-						result.info = `Project created successfully. Due to GitHub API limitations, team access must be added manually.`;
+							result.info = `Project created successfully. Due to GitHub API limitations with Personal Access Tokens, team access must be added manually.`;
+						}
 
 						if (description) {
 							result.description_note = `To add description: Go to project settings and add "${description}"`;
@@ -520,16 +550,13 @@ export class GithubOrganizationHelper implements INodeType {
 							role,
 						};
 
-						const response = await this.helpers.requestWithAuthentication.call(
-							this,
-							'GithubApi',
-							{
-								method: 'PUT',
-								url: `https://api.github.com/orgs/${organization}/teams/${teamSlug}/memberships/${username}`,
-								body,
-								json: true,
-							},
-						);
+						const response = await this.helpers.request({
+							method: 'PUT',
+							url: `https://api.github.com/orgs/${organization}/teams/${teamSlug}/memberships/${username}`,
+							headers: authHeaders,
+							body,
+							json: true,
+						});
 
 						returnData.push({ json: response });
 					}
