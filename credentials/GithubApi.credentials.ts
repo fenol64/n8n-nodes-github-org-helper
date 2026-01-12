@@ -72,7 +72,6 @@ export class GithubApi implements ICredentialType {
 			name: 'privateKey',
 			type: 'string',
 			typeOptions: {
-				password: true,
 				rows: 10,
 			},
 			default: '',
@@ -82,7 +81,7 @@ export class GithubApi implements ICredentialType {
 					authMethod: ['app'],
 				},
 			},
-			description: 'GitHub App Private Key (PEM format)',
+			description: 'GitHub App Private Key (PEM format) - Copy the entire content from the .pem file',
 		},
 	];
 
