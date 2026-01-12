@@ -520,13 +520,12 @@ export class GithubOrganizationHelper implements INodeType {
 
 						if (!orgTeamResponse.data?.organization?.id) {
 							throw new Error(`Organization '${organization}' not found or you don't have access to it`);
-						}
+						}					if (!orgTeamResponse.data?.organization?.team?.id) {
+						throw new Error(`Team '${teamSlug}' not found in organization '${organization}'`);
+					}
 
-						if (!orgTeamResponse.data?.organization?.team?.id) {
-							throw new Error(`Team '${teamSlug}' not found in organization '${organization}'`);
-						}
-
-						const ownerId = orgTeamResponse.data.organization.id;
+					const ownerId = orgTeamResponse.data.organization.id;
+					const teamId = orgTeamResponse.data.organization.team.id;
 
 						// Create organization project using GraphQL (Projects V2)
 						const createProjectMutation = `
@@ -560,36 +559,58 @@ export class GithubOrganizationHelper implements INodeType {
 
 						if (createResponse.errors) {
 							throw new Error(`GitHub GraphQL Error: ${JSON.stringify(createResponse.errors)}`);
-						}
+						}					if (!createResponse.data?.createProjectV2?.projectV2) {
+						throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
+					}
 
-						if (!createResponse.data?.createProjectV2?.projectV2) {
-							throw new Error('Failed to create project. Please ensure your GitHub token has "project" permissions.');
-						}
+					const projectUrl = createResponse.data.createProjectV2.projectV2.url;
+					const projectId = createResponse.data.createProjectV2.projectV2.id;
 
-						const projectUrl = createResponse.data.createProjectV2.projectV2.url;
+					let result = createResponse.data.createProjectV2.projectV2;
 
-						let result = createResponse.data.createProjectV2.projectV2;
+					// Add team to project automatically using GraphQL
+					try {
+						const linkProjectToTeamMutation = `
+							mutation($projectId: ID!, $teamId: ID!) {
+								linkProjectV2ToTeam(input: {projectId: $projectId, teamId: $teamId}) {
+									clientMutationId
+								}
+							}
+						`;
 
-						// With GitHub Apps, we can now add team collaborators automatically
-						if (credentials.authMethod === 'app') {
-							result.info = `Project created successfully with GitHub App authentication. Team access can now be managed programmatically.`;
-							// TODO: Implement automatic team collaboration assignment when GitHub adds this to their API
-							result.team_access_note = `Team '${teamSlug}' access should be added via GitHub's project collaboration API once available.`;
+						const linkResponse = await this.helpers.request({
+							method: 'POST',
+							url: 'https://api.github.com/graphql',
+							headers: authHeaders,
+							body: {
+								query: linkProjectToTeamMutation,
+								variables: {
+									projectId,
+									teamId,
+								},
+							},
+							json: true,
+						}) as any;
+
+						if (linkResponse.errors) {
+							// If linking fails, still return the project but with a warning
+							result.warning = `Project created but failed to link team: ${JSON.stringify(linkResponse.errors)}`;
+							result.team_instructions = `To add team '${teamSlug}' manually:\n1. Go to ${projectUrl}/settings/access\n2. Click "Add teams"\n3. Search for '${teamSlug}' and add it`;
 						} else {
-							// Note: GitHub API doesn't allow adding team collaborators via Personal Access Token
-							result.team_instructions = `To add team '${teamSlug}' to this project:
-1. Go to ${projectUrl}/settings/access
-2. Click "Manage access"
-3. Click "Add teams"
-4. Search for '${teamSlug}' and add it with desired role`;
-							result.info = `Project created successfully. Due to GitHub API limitations with Personal Access Tokens, team access must be added manually.`;
+							result.info = `Project created successfully and team '${teamSlug}' has been automatically added with access!`;
+							result.team_linked = true;
 						}
+					} catch (linkError: any) {
+						// If linking fails, still return the project but with a warning
+						result.warning = `Project created but failed to link team: ${linkError.message}`;
+						result.team_instructions = `To add team '${teamSlug}' manually:\n1. Go to ${projectUrl}/settings/access\n2. Click "Add teams"\n3. Search for '${teamSlug}' and add it`;
+					}
 
-						if (description) {
-							result.description_note = `To add description: Go to project settings and add "${description}"`;
-						}
+					if (description) {
+						result.description_note = `To add description: Go to project settings and add "${description}"`;
+					}
 
-						returnData.push({ json: result });
+					returnData.push({ json: result });
 					}
 				} else if (resource === 'teamMember') {
 					if (operation === 'add') {
