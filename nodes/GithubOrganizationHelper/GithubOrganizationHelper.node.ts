@@ -319,6 +319,24 @@ export class GithubOrganizationHelper implements INodeType {
 						throw new Error('GitHub App Private Key must be in PEM format (include BEGIN and END lines)');
 					}
 
+					// Clean and normalize the private key
+					let cleanedPrivateKey = privateKey.trim();
+
+					// Ensure proper line breaks - some copy/paste operations might mess this up
+					cleanedPrivateKey = cleanedPrivateKey
+						.replace(/\\n/g, '\n')  // Replace literal \n with actual newlines
+						.replace(/\r\n/g, '\n') // Normalize Windows line endings
+						.replace(/\r/g, '\n');  // Normalize Mac line endings
+
+					// Ensure the key starts and ends properly
+					if (!cleanedPrivateKey.startsWith('-----BEGIN')) {
+						throw new Error('Private key must start with -----BEGIN RSA PRIVATE KEY----- or -----BEGIN PRIVATE KEY-----');
+					}
+
+					if (!cleanedPrivateKey.endsWith('-----')) {
+						throw new Error('Private key must end with -----END RSA PRIVATE KEY----- or -----END PRIVATE KEY-----');
+					}
+
 					// Generate JWT for GitHub App
 					const now = Math.floor(Date.now() / 1000);
 					const payload = {
@@ -328,7 +346,7 @@ export class GithubOrganizationHelper implements INodeType {
 					};
 
 					try {
-						const jwtToken = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+						const jwtToken = jwt.sign(payload, cleanedPrivateKey, { algorithm: 'RS256' });
 
 						// Get installation token
 						const tokenResponse = await this.helpers.request({
