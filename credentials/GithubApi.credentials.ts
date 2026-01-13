@@ -8,7 +8,7 @@ import {
 
 export class GithubApi implements ICredentialType {
 	name = 'githubApi';
-    icon = 'file:../icons/github.dark.svg' as Icon;
+	icon = 'file:../icons/github.dark.svg' as Icon;
 	displayName = 'GitHub API';
 	documentationUrl = 'https://github.com/fenol64/n8n-nodes-github-org-helper';
 	properties: INodeProperties[] = [
@@ -74,6 +74,7 @@ export class GithubApi implements ICredentialType {
 			type: 'string',
 			typeOptions: {
 				rows: 10,
+				password: true,
 			},
 			default: '',
 			required: true,

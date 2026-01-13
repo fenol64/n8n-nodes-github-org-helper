@@ -25,7 +25,7 @@ export class GithubOrganizationHelper implements INodeType {
 		outputs: ['main'],
 		credentials: [
 			{
-				name: 'GithubApi',
+				name: 'githubApi',
 				required: true,
 			},
 		],
@@ -295,12 +295,11 @@ export class GithubOrganizationHelper implements INodeType {
 		const operation = this.getNodeParameter('operation', 0) as string;
 
 		for (let i = 0; i < items.length; i++) {
-			try {
-				const organization = this.getNodeParameter('organization', i) as string;
+			try {			const organization = this.getNodeParameter('organization', i) as string;
 
-				// Get auth headers for this operation
-				const credentials = await this.getCredentials('GithubApi');
-				let authHeaders: { [key: string]: string };
+			// Get auth headers for this operation
+			const credentials = await this.getCredentials('githubApi');
+			let authHeaders: { [key: string]: string };
 
 				if (credentials.authMethod === 'app') {
 					// Validate GitHub App credentials
