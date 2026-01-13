@@ -1,7 +1,7 @@
 {
 	"name": "n8n-nodes-github-org-helper",
 	"description": "n8n nodes to help with GitHub Organization management tasks.",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"license": "MIT",
 	"homepage": "https://github.com/fenol64/n8n-nodes-github-org-helper",
 	"keywords": [
